@@ -1,5 +1,5 @@
 import ray
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 from ray.train import RunConfig, ScalingConfig, CheckpointConfig
 from ray.train.torch import TorchTrainer
 from ray.train.lightning import (
@@ -102,19 +102,20 @@ class local_node():
        
     def train_func_per_worker(self):
         # trainer = pl.Trainer(max_epochs=self.maxEpoch, accelerator='cuda', devices=-1) 
+        ckpt_report_callback = RayTrainReportCallback()
         trainer = pl.Trainer(max_epochs=self.maxEpoch, 
                              devices="auto",
                              accelerator="auto",
                              strategy=RayDDPStrategy(),
-                            #  callbacks=[RayTrainReportCallback()],
+                             callbacks=[ckpt_report_callback],
                              plugins=[RayLightningEnvironment()],
                              enable_progress_bar=False,
                             )
         trainer = prepare_trainer(trainer) 
-        trainer.fit(self.model, train_dataloaders=DataLoader(self.data_train, batch_size=64,shuffle=False))
+        trainer.fit(self.model, train_dataloaders=DataLoader(self.data_train, batch_size=64, shuffle=True))
 
         print(f"Performance of Node {self.node_id} before aggregation at round {self.curren_round}")
-        trainer.test(self.model, DataLoader(self.test_dataset, batch_size=64,shuffle=True))
+        trainer.test(self.model, DataLoader(self.test_dataset, batch_size=64,shuffle=False))
 
         trainer.save_checkpoint(f"{self.experimentsName_path}/checkpoint_{self.experimentsName}_node_{self.node_id}_round_{self.curren_round}.ckpt")
 

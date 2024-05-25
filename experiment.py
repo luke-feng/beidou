@@ -41,7 +41,7 @@ now = datetime.now()
 # dd/mm/YY H:M:S
 dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
 
-experimentsName_path = cwd+'\\'+experimentsName+dt_string
+experimentsName_path = cwd+'/'+experimentsName+dt_string
 os.mkdir(experimentsName_path)
 
 ray.init()
@@ -77,7 +77,7 @@ try:
         
         ray.get([node_list[node_id].aggregation.remote() for node_id in node_list])
 
-except Exception:
-    print(Exception)
+except Exception as e:
+    print(e)
 finally:
     ray.shutdown()

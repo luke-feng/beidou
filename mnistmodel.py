@@ -10,9 +10,7 @@ from torchmetrics import Accuracy
 from torchvision.datasets import MNIST
 from torchvision import transforms
 
-import pytorch_lightning as pl
-from pytorch_lightning import trainer
-from pytorch_lightning.loggers.csv_logs import CSVLogger
+import lightning.pytorch as pl
 import wandb
 
 class MNISTModelMLP(pl.LightningModule):
