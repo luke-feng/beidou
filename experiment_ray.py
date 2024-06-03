@@ -7,7 +7,7 @@ from torchvision.datasets import MNIST
 from torch.utils.data import Subset
 from torchvision import transforms
 import numpy as np
-from node import local_node
+from node_ray import local_node
 from multiprocessing import Manager, Process
 
 
@@ -41,7 +41,7 @@ now = datetime.now()
 # dd/mm/YY H:M:S
 dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
 
-experimentsName_path = cwd+'/'+experimentsName+dt_string
+experimentsName_path = cwd+'/experiments/'+experimentsName+dt_string
 os.mkdir(experimentsName_path)
 
 ray.init()

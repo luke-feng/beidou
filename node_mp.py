@@ -1,20 +1,11 @@
-import ray
 import lightning.pytorch as pl
-from ray.train import RunConfig, ScalingConfig, CheckpointConfig
-from ray.train.torch import TorchTrainer
-from ray.train.lightning import (
-    RayDDPStrategy,
-    RayLightningEnvironment,
-    RayTrainReportCallback,
-    prepare_trainer,
-)
 import wandb
 from mnistmodel import MNISTModelMLP
 from subset import ChangeableSubset
 from torch.utils.data import DataLoader, random_split
 from fed_avg import fed_avg
+from multiprocessing import Manager, Process
 
-@ray.remote
 class local_node():
     def __init__(
             self,
@@ -32,7 +23,7 @@ class local_node():
         self.node_id = node_id
         self.indices = indices
         self.logger=logger
-        self.model = MNISTModelMLP(lr=1e-3, feature_dim=128)
+        self.model = MNISTModelMLP()
         self.neiList = neiList
         self.maxRound = maxRound
         self.maxEpoch = maxEpoch
@@ -53,7 +44,7 @@ class local_node():
 
         
         self.curren_round = 0
-        self.aggregated_model = MNISTModelMLP(lr=1e-3, feature_dim=128)
+        self.aggregated_model = MNISTModelMLP()
 
         self.local_model_record = {}
         self.local_model_record[0] = self.model
@@ -100,43 +91,14 @@ class local_node():
             self.nei_model_record[round] = {}
             self.nei_model_record[round][nei_id]=nei_model
        
-    def train_func_per_worker(self):
-        # trainer = pl.Trainer(max_epochs=self.maxEpoch, accelerator='cuda', devices=-1) 
-        ckpt_report_callback = RayTrainReportCallback()
-        trainer = pl.Trainer(max_epochs=self.maxEpoch, 
-                             devices="auto",
-                             accelerator="auto",
-                             strategy=RayDDPStrategy(),
-                             callbacks=[ckpt_report_callback],
-                             plugins=[RayLightningEnvironment()],
-                             enable_progress_bar=False,
-                            )
-        trainer = prepare_trainer(trainer) 
+    def local_training(self):
+        trainer = pl.Trainer(max_epochs=self.maxEpoch, accelerator='cuda', devices=1) 
         trainer.fit(self.model, train_dataloaders=DataLoader(self.data_train, batch_size=64, shuffle=True))
 
         print(f"Performance of Node {self.node_id} before aggregation at round {self.curren_round}")
         trainer.test(self.model, DataLoader(self.test_dataset, batch_size=64,shuffle=False))
 
         trainer.save_checkpoint(f"{self.experimentsName_path}/checkpoint_{self.experimentsName}_node_{self.node_id}_round_{self.curren_round}.ckpt")
-
-    def local_training(self):
-        scaling_config = ScalingConfig(num_workers=1, use_gpu=True)
-        run_config = RunConfig(
-            name=f"ptl-mnist-example_node_{self.node_id}",
-            storage_path="/tmp/ray_results",
-            checkpoint_config=CheckpointConfig(
-                num_to_keep=3,
-                checkpoint_score_attribute="val_accuracy",
-                checkpoint_score_order="max",
-            ),
-        )
-
-        trainer = TorchTrainer(
-            self.train_func_per_worker,
-            scaling_config=scaling_config,
-            run_config=run_config,
-        )
-        trainer.fit()
     
     def aggregation(self):
         current_rount_nei_models = self.nei_model_record[self.curren_round]
@@ -152,7 +114,6 @@ class local_node():
         self.aggregated_model.load_state_dict(aggregated_model_para)
         self.replace_local_aggregated_model()
 
-        trainer = pl.Trainer(devices="auto",
-                             accelerator="auto") 
+        trainer = pl.Trainer(accelerator='cuda', devices=1) 
         print(f"Performance of Node {self.node_id} after aggregation at round {self.curren_round}")
         trainer.test(self.model, DataLoader(self.test_dataset, batch_size=64,shuffle=False))

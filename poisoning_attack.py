@@ -146,7 +146,6 @@ def add_x_to_image(img):
     size = 10
     for i in range(0, size):
         for j in range(0, size):
-            img[i][j] = 255
-        # img[i][size - i - 1] = 255
+            if i + j == size-1 or i == j:                
+                img[i][j] = 255
     return torch.tensor(img).clone().detach()
-
