@@ -29,7 +29,7 @@ class MNISTModelMLP(pl.LightningModule):
             loss (torch.Tensor, optional): Loss value
         """
         if loss is not None:
-            self.log(f"{phase}/Loss", loss, prog_bar=True, logger=True)
+            self.log(f"{phase}/Loss", loss, prog_bar=False, logger=True, sync_dist=True)
 
         y_pred_classes = torch.argmax(y_pred, dim=1)
         if phase == "Train":
@@ -45,7 +45,7 @@ class MNISTModelMLP(pl.LightningModule):
             raise NotImplementedError
         # print(f"y_pred shape: {y_pred.shape}, y_pred_classes shape: {y_pred_classes.shape}, y shape: {y.shape}")  # Debug print
         output = {f"{phase}/{key.replace('Multiclass', '').split('/')[-1]}": value for key, value in output.items()}
-        self.log_dict(output, prog_bar=True, logger=True)
+        self.log_dict(output, prog_bar=False, logger=True, sync_dist=True)
 
         if self.cm is not None:
             self.cm.update(y_pred_classes, y)
@@ -72,7 +72,7 @@ class MNISTModelMLP(pl.LightningModule):
             raise NotImplementedError
 
         output = {f"{phase}Epoch/{key.replace('Multiclass', '').split('/')[-1]}": value for key, value in output.items()}
-        self.log_dict(output, prog_bar=True, logger=True)
+        self.log_dict(output, prog_bar=False, logger=True, sync_dist=True)
 
         if self.cm is not None:
             cm = self.cm.compute().cpu()
@@ -167,7 +167,7 @@ class MNISTModelMLP(pl.LightningModule):
         loss = self.criterion(y_pred, labels)
 
         # Get metrics for each batch and log them
-        self.log(f"{phase}/Loss", loss, prog_bar=True)
+        self.log(f"{phase}/Loss", loss, prog_bar=False, sync_dist=True)
         self.process_metrics(phase, y_pred, labels, loss)
 
         return loss

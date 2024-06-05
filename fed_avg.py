@@ -5,7 +5,7 @@ def fed_avg(models):
     Weighted average of the models.
 
     Args:
-        models: Dictionary with the models (node: model, num_samples).
+        models: list of model state_dict
     """
     if len(models) == 0:
         return None

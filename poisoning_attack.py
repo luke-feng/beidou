@@ -5,7 +5,7 @@ import torch
 from collections import OrderedDict
 from skimage.util import random_noise
 
-def labelFlipping(dataset, indices, poisoned_percent=0, targeted=False, target_label=4, target_changed_label=7):
+def labelFlipping(dataset, indices, poisoned_sample_ratio:int=0, targeted:bool=False, target_label=4, target_changed_label=7):
     """
     select flipping_persent of labels, and change them to random values.
     Args:
@@ -21,7 +21,7 @@ def labelFlipping(dataset, indices, poisoned_percent=0, targeted=False, target_l
     # class_list = [class_to_idx[i] for i in classes]
     class_list = set(targets.tolist())
     if targeted == False:
-        num_flipped = int(poisoned_percent * num_indices)
+        num_flipped = int(poisoned_sample_ratio/100 * num_indices)
         if num_indices == 0:
             return new_dataset
         if num_flipped > num_indices:
@@ -42,7 +42,7 @@ def labelFlipping(dataset, indices, poisoned_percent=0, targeted=False, target_l
     return new_dataset
 
 
-def modelpoison(model: OrderedDict, poisoned_ratio, noise_type="gaussian"):
+def modelpoison(model: OrderedDict, noise_injected_ratio:int=0, noise_type="salt"):
     """
     Function to add random noise of various types to the model parameter.
     """
@@ -58,13 +58,13 @@ def modelpoison(model: OrderedDict, poisoned_ratio, noise_type="gaussian"):
         # print(t)
         if noise_type == "salt":
             # Replaces random pixels with 1.
-            poisoned = torch.tensor(random_noise(t, mode=noise_type, amount=poisoned_ratio))
+            poisoned = torch.tensor(random_noise(t, mode=noise_type, amount=noise_injected_ratio/100))
         elif noise_type == "gaussian":
             # Gaussian-distributed additive noise.
-            poisoned = torch.tensor(random_noise(t, mode=noise_type, mean=0, var=poisoned_ratio, clip=True))
+            poisoned = torch.tensor(random_noise(t, mode=noise_type, mean=0, var=noise_injected_ratio/100, clip=True))
         elif noise_type == "s&p":
             # Replaces random pixels with either 1 or low_val, where low_val is 0 for unsigned images or -1 for signed images.
-            poisoned = torch.tensor(random_noise(t, mode=noise_type, amount=poisoned_ratio))
+            poisoned = torch.tensor(random_noise(t, mode=noise_type, amount=noise_injected_ratio/100))
         else:
             print("ERROR: @modelpoisoning: poison attack type not supported.")
             poisoned = t
@@ -75,7 +75,7 @@ def modelpoison(model: OrderedDict, poisoned_ratio, noise_type="gaussian"):
     return poisoned_model
 
 
-def datapoison(dataset, indices, poisoned_percent, poisoned_ratio, targeted=False, target_label=3, noise_type="salt", backdoor_validation=False):
+def datapoison(dataset, indices, poisoned_sample_ratio:int=0, noise_injected_ratio:int=0, targeted=False, target_label=3, noise_type="salt", backdoor_validation=False):
     """
     Function to add random noise of various types to the dataset.
     """
@@ -85,7 +85,7 @@ def datapoison(dataset, indices, poisoned_percent, poisoned_ratio, targeted=Fals
     num_indices = len(indices)
 
     if not targeted:
-        num_poisoned = int(poisoned_percent * num_indices)
+        num_poisoned = int(poisoned_sample_ratio/100 * num_indices)
         if num_indices == 0:
             return new_dataset
         if num_poisoned > num_indices:
@@ -96,20 +96,20 @@ def datapoison(dataset, indices, poisoned_percent, poisoned_ratio, targeted=Fals
             t = train_data[i]
             if noise_type == "salt":
                 # Replaces random pixels with 1.
-                noise_img = random_noise(t, mode=noise_type, amount=poisoned_ratio)
+                noise_img = random_noise(t, mode=noise_type, amount=noise_injected_ratio/100)
                 noise_img = np.array(255*noise_img, dtype = 'uint8')
                 poisoned = torch.tensor(noise_img)               
 
             elif noise_type == "gaussian":
                 # Gaussian-distributed additive noise.
                 # poisoned = torch.tensor(random_noise(t, mode=noise_type, mean=0, var=poisoned_ratio, clip=True))
-                noise_img = random_noise(t, mode=noise_type, mean=0, var=poisoned_ratio, clip=True)
+                noise_img = random_noise(t, mode=noise_type, mean=0, var=noise_injected_ratio/100, clip=True)
                 noise_img = np.array(255*noise_img, dtype = 'uint8')
                 poisoned = torch.tensor(noise_img)
             elif noise_type == "s&p":
                 # Replaces random pixels with either 1 or low_val, where low_val is 0 for unsigned images or -1 for signed images.
                 # poisoned = torch.tensor(random_noise(t, mode=noise_type, amount=poisoned_ratio))
-                noise_img = random_noise(t, mode=noise_type, amount=poisoned_ratio)
+                noise_img = random_noise(t, mode=noise_type, amount=noise_injected_ratio/100)
                 noise_img = np.array(255*noise_img, dtype = 'uint8')
                 poisoned = torch.tensor(noise_img)
             # elif noise_type == "nlp_rawdata":

@@ -2,7 +2,6 @@
 protobuf==3.20.3
 qtconsole==5.4.2
 aiohttp==3.8.4
-netifaces==0.11.0
 numpy==1.24.2
 torch==2.0.1
 torchvision==0.15.2
