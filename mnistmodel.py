@@ -184,7 +184,7 @@ class MNISTModelMLP(pl.LightningModule):
         return self.step(batch, "Train")
 
     def on_train_epoch_end(self):
-        self.log_metrics_by_epoch("Train", print_cm=False, plot_cm=True)
+        self.log_metrics_by_epoch("Train", print_cm=False, plot_cm=False)
 
     def validation_step(self, batch, batch_idx):
         """
@@ -198,7 +198,7 @@ class MNISTModelMLP(pl.LightningModule):
         return self.step(batch, "Validation")
 
     def on_validation_epoch_end(self):
-        self.log_metrics_by_epoch("Validation", print_cm=False, plot_cm=True)
+        self.log_metrics_by_epoch("Validation", print_cm=False, plot_cm=False)
 
     def test_step(self, batch, batch_idx):
         """
@@ -213,6 +213,6 @@ class MNISTModelMLP(pl.LightningModule):
 
 
     def on_test_epoch_end(self):
-        self.log_metrics_by_epoch("Test", print_cm=False, plot_cm=True)
+        self.log_metrics_by_epoch("Test", print_cm=False, plot_cm=False)
 
  

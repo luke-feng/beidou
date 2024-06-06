@@ -12,9 +12,9 @@ from torch.utils.data import Subset
 import random
 import numpy as np
 from poisoning_attack import modelpoison
-
+import copy
 from util import cosine_metric, cosine_metric2, manhattan_metric, chebyshev_metric, pearson_correlation_metric, euclidean_metric
-
+from sklearn.cluster import DBSCAN
 
 class local_node():
     def __init__(
@@ -37,7 +37,7 @@ class local_node():
         self.dataset_name = self.config['dataset_name']
         self.neiList = self.config['neiList']
         if self.node_id not in self.neiList:
-            self.neiList.append(self.node_id)
+            self.add_nei_to_neiList(self.node_id)
         
         self.maxRound = self.config['maxRound']
         self.maxEpoch = self.config['maxEpoch']
@@ -90,6 +90,10 @@ class local_node():
         model_info = self.model        
         return model_info
     
+    def get_model_param(self):
+        model_param = copy.deepcopy(self.model.state_dict())
+        return model_param
+    
     def set_aggregation_fun(self, aggregation_fun:str):
         self.curr_aggregation = aggregation_fun
     
@@ -117,7 +121,16 @@ class local_node():
     def set_neiList(self, new_neiList):
         self.neiList = new_neiList
     
+    def add_nei_to_neiList(self, nei_id):
+        if nei_id not in self.neiList:
+            self.neiList.append(nei_id)
+    
+    def remove_nei_from_neiList(self, nei_id):
+        if nei_id in self.neiList:
+            self.neiList.remove(nei_id)
+    
     def add_nei_model(self, round, nei_id, nei_model):
+        # print(f"I am node {self.node_id}, I am adding model from node {nei_id} to my list")
         if round in self.nei_model_record:
             self.nei_model_record[round][nei_id]=nei_model
         else:
@@ -137,7 +150,8 @@ class local_node():
         
         # if model poisoning attack, change the model before send to others
         if self.model_poison:
-            poisoned_model_dict = modelpoison(self.model.state_dict(), self.noise_injected_ratio)
+            cur_model_para = self.get_model_param()
+            poisoned_model_dict = modelpoison(cur_model_para, self.noise_injected_ratio)
             self.model.load_state_dict(poisoned_model_dict)
         
         print(f"Performance of Node {self.node_id} before aggregation at round {self.curren_round}")
@@ -152,57 +166,105 @@ class local_node():
         aggregation_list = [krum, trimmedMean, median]
         random_index = random.randint(0, len(aggregation_list)-1)
         self.curr_aggregation = aggregation_list[random_index]
+    
+    def get_rep_threshold_trigger(self, nei_reputation_score, sensitive=0.1):
+        trigger = False
+        rep_threshold = 0
         
-    def cal_reputation(self, reputation_func=cosine_metric):
+        repList = list(nei_reputation_score.values())       
+        max_value = int(max(repList))
+        if max_value==1:
+            repList.remove(max_value)
+        
+        X = np.array(list(repList)).reshape(-1, 1)
+        db = DBSCAN(eps=sensitive, min_samples=1)
+        clusters = db.fit_predict(X.reshape(-1,1))
+        unique_labels = set(clusters)
+        
+        if len(unique_labels) > 1:
+            print(f"[MTD] malicious detected!")
+            trigger = True            
+        
+            lowerbound = []
+            upperbound = []
+            
+            for label in unique_labels:
+                cluster_points = X[clusters == label]
+                lowerbound.append(min(cluster_points))
+                upperbound.append(max(cluster_points))
+            
+            # the threshold is the average of lowerbound of the first class and upperbound of the last class
+            lowerbound.sort()
+            upperbound.sort()
+            rep_threshold = np.mean([lowerbound[-1], upperbound[0]])
+            
+        return rep_threshold, trigger
+        
+        
+    def cal_reputation(self, reputation_func=euclidean_metric):
         nei_reputation_score = {}
-        model_param = self.model.state_dict()
+        model_param = self.get_model_param()
         current_round_nei_models = self.nei_model_record[self.curren_round]
         for nei in current_round_nei_models:
-            nei_model_param = current_round_nei_models[nei].state_dict()
+            nei_model_param = current_round_nei_models[nei]
             nei_reputation_score[nei] = reputation_func(model_param, nei_model_param)
+        print(f"[Reputation] in {self.node_id}: {nei_reputation_score}")
         return nei_reputation_score
     
-    def dynamic_topology(self, nei_reputation_score):
+    def dynamic_topology(self, nei_reputation_score, rep_threshold):
         if self.attack_type.lower() == 'no attack':
             connected_node = len(self.neiList)
-            for node_id in nei_reputation_score:
-                if node_id in self.neiList and nei_reputation_score[node_id] < self.reputation_threshold:
-                    self.neiList.remove(node_id)
-                    connected_node -= 1
-                if node_id not in self.neiList and connected_node < self.candidate_threshold and nei_reputation_score[node_id] >= self.reputation_threshold:
-                    connected_node += 1
-                    self.neiList.append(node_id)
-                
-        
+            self.reputation_threshold = rep_threshold
+            print(f"[Reputation_threshold] in {self.node_id}: {self.reputation_threshold}")
+            node_list = list(nei_reputation_score.keys())
+            random.shuffle(node_list)
+            for node_id in node_list:
+                if node_id in self.neiList:
+                    if nei_reputation_score[node_id] < self.reputation_threshold:
+                        self.remove_nei_from_neiList(node_id)
+                        print(f"[dynamic_topology] in {self.node_id}: remove {node_id} from nei list")
+                        connected_node -= 1
+                else:
+                    if connected_node <= self.candidate_threshold and nei_reputation_score[node_id] >= self.reputation_threshold:
+                        connected_node += 1
+                        self.add_nei_to_neiList(node_id)
+                        print(f"[dynamic_topology] in {self.node_id}: add {node_id} from nei list")
     
-    def aggregation(self):
+    def aggregation(self, testing:bool=True):
         current_round_nei_models = self.nei_model_record[self.curren_round]
         nei_models_list = []
         
-        #MTD
-        if self.dynamic_agg:
-            self.dynamic_aggregation()
-        
-        if self.dynamic_topo:
-            nei_reputation_score = self.cal_reputation()
-            self.dynamic_topology(nei_reputation_score)
-        
+        if self.curren_round > 0:
+            # calculate the reputation score
+            nei_reputation_score = self.cal_reputation(euclidean_metric)
+            self.logger.log_metrics({"nei_reputation_score":nei_reputation_score})
+            
+            # get the reputation threshold
+            rep_threshold, trigger = self.get_rep_threshold_trigger(nei_reputation_score)
+            
+            #MTD        
+            if self.is_proactive:
+                # proactive
+                if self.dynamic_agg:
+                    self.dynamic_aggregation()            
+                if self.dynamic_topo:            
+                    self.dynamic_topology(nei_reputation_score, rep_threshold)
+            else:
+                # reactive
+                if trigger:
+                    if self.dynamic_agg:
+                        self.dynamic_aggregation()            
+                    if self.dynamic_topo:            
+                        self.dynamic_topology(nei_reputation_score, rep_threshold)
+                    
+        self.logger.log_metrics({"neiList":self.neiList})
         for nei in current_round_nei_models:
             if nei in self.neiList:
-                nei_models_list.append(current_round_nei_models[nei].state_dict())                     
+                nei_models_list.append(current_round_nei_models[nei])                     
             
         print(f"Node {self.node_id} aggregate {len(nei_models_list)} models with {self.neiList}")
         
         aggregated_model_para = self.aggregator(self.curr_aggregation, nei_models_list)
-            
-        # if self.curr_aggregation == "fed_avg":        
-        #     aggregated_model_para = self.aggregator(fed_avg, nei_models_list)
-        # elif self.curr_aggregation == "krum":        
-        #     aggregated_model_para = self.aggregator(krum, nei_models_list)    
-        # elif self.curr_aggregation == "trimmedmean":        
-        #     aggregated_model_para = self.aggregator(trimmedMean, nei_models_list)
-        # elif self.curr_aggregation == "median":        
-        #     aggregated_model_para = self.aggregator(median, nei_models_list)
           
         self.aggregated_model.load_state_dict(aggregated_model_para)
         self.model.load_state_dict(aggregated_model_para)

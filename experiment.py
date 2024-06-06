@@ -12,19 +12,31 @@ from fed_avg import fed_avg
 from krum import krum
 from trimmedmean import trimmedMean
 from median import median
+import copy 
+
+import logging
+# configure logging at the root level of Lightning
+logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
+# configure logging on module level, redirect to file
+logger = logging.getLogger("lightning.pytorch.core")
+logger.addHandler(logging.FileHandler("core.log"))
+log = logging.getLogger("pytorch_lightning")
+log.propagate = False
+log.setLevel(logging.ERROR)
+
 
 start_time = time.time()
-num_peers = 5
+num_peers = 3
 alpha = 100
 node_list = {}
-maxRound = 2
+maxRound = 1
 maxEpoch = 1
 dataset_name = "MNIST"
 
 # topology should be one of ["fully", "star", "ring", "bus", "rondom"]
-topology = "fully"
+topology = "ring"
 # init_aggregation should be one of [fed_avg, krum, trimmedmean, median]
-init_aggregation = median
+init_aggregation = fed_avg
 
 adj_matrix = get_adjacency_matrix(topology, num_peers)
 nei_list = adjacency_matrix_to_nei_list(adj_matrix)
@@ -61,10 +73,11 @@ experimentsName_path = cwd+'/experiments/'+experimentsName
 os.mkdir(experimentsName_path)
 
 # mtd
-dynamic_topo = False
+dynamic_topo = True
 dynamic_agg = False 
 is_proactive  = True 
 
+# initial the nodes
 for client in range(num_peers):
     indices = client_indices[client]
     node_id = client      
@@ -94,18 +107,36 @@ for client in range(num_peers):
         pickle.dump(node_config, f)
         f.close()
     
+# initial aggregation, without training
+for node_id in node_list:
+    node = node_list[node_id]
+    node.curren_round = 0
+    for nei in node_list:
+        node_list[nei].add_nei_model(0, node_id, copy.deepcopy(node.model.state_dict()))
+for node_id in node_list:
+    node = node_list[node_id]
+    node.aggregation()
 
-for round in range(maxRound):
+# federated learning
+for round in range(1, maxRound+1):  
     for node_id in node_list:
         node = node_list[node_id]
-        node.curren_round = round+1
+        node.curren_round = round
         node.local_training()
         for nei in node_list:
-            node_list[nei].add_nei_model(round+1, node_id, node.model)
+            # model will be send to all nodes, but only aggregate within neiList
+            # print(f"I am node {node_id}, I am sending my model to node {nei}")
+            node_list[nei].add_nei_model(round, node_id, copy.deepcopy(node.model.state_dict()))
     
     for node_id in node_list:
         node = node_list[node_id]
         node.aggregation()
+        for nei_id in node_list:
+            if nei_id in  node.get_neiList():
+                #build the dual link
+                node_list[nei_id].add_nei_to_neiList(node_id)
+            else:
+                node_list[nei_id].remove_nei_from_neiList(node_id)
 
 end_time = time.time()
 print(f"finished in {end_time-start_time} seconds")
