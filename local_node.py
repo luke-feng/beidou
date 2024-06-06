@@ -258,6 +258,7 @@ class local_node():
                         self.dynamic_topology(nei_reputation_score, rep_threshold)
                     
         self.logger.log_metrics({"neiList":self.neiList})
+        self.logger.log_metrics({"aggregation":self.curr_aggregation})
         for nei in current_round_nei_models:
             if nei in self.neiList:
                 nei_models_list.append(current_round_nei_models[nei])                     
