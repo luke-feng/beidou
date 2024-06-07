@@ -154,9 +154,9 @@ def generate_node_configs(node_id:int, indices:list, experimentsName:str, experi
                 ],
             )
 
-    data_train_loader = DataLoader(data_train, batch_size=64,shuffle=True,num_workers=4)
-    data_val_loader = DataLoader(data_val, batch_size=64,shuffle=False,num_workers=4)
-    test_dataset_loader = DataLoader(test_dataset, batch_size=64,shuffle=False,num_workers=4)
+    data_train_loader = DataLoader(data_train, batch_size=64,shuffle=True)
+    data_val_loader = DataLoader(data_val, batch_size=64,shuffle=False)
+    test_dataset_loader = DataLoader(test_dataset, batch_size=64,shuffle=False)
 
     node_config = {
         "basic_config":basic_config,

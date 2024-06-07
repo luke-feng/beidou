@@ -15,6 +15,7 @@ from poisoning_attack import modelpoison
 import copy
 from util import cosine_metric, cosine_metric2, manhattan_metric, chebyshev_metric, pearson_correlation_metric, euclidean_metric
 from sklearn.cluster import DBSCAN
+from lightning.pytorch.strategies import DDPStrategy
 
 class local_node():
     def __init__(
@@ -140,11 +141,14 @@ class local_node():
        
     def local_training(self):
         # trainer = pl.Trainer(max_epochs=self.maxEpoch, accelerator='cuda', devices=-1) 
+        ddp = DDPStrategy(process_group_backend="gloo")
         trainer = pl.Trainer(logger=self.logger,
                              max_epochs=self.maxEpoch, 
-                             devices=1,
+                             devices=2,
                              accelerator="cuda",
-                             enable_progress_bar=False)
+                             enable_progress_bar=False, 
+                             enable_checkpointing=False,
+                             strategy=ddp)
         
         trainer.fit(self.model, train_dataloaders=self.data_train, val_dataloaders=self.data_val)
 
@@ -275,7 +279,9 @@ class local_node():
                              max_epochs=self.maxEpoch, 
                              devices=1,
                              accelerator="cuda",
-                             enable_progress_bar=False) 
+                             enable_progress_bar=False, 
+                             enable_checkpointing=False,
+                             )
         print(f"Performance of Node {self.node_id} after aggregation at round {self.curren_round}")
         trainer.test(self.model, self.test_dataset)
 

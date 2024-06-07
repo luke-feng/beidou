@@ -31,7 +31,7 @@ alpha_list = [100, 1, 0.1]
 topology_list = ["fully", "star", "ring"]
 maxRound = 30
 maxEpoch = 1
-init_aggregation_list = [fed_avg, krum, trimmedMean, median]
+init_aggregation_dict = {'fed_avg':fed_avg, 'krum':krum, 'trimmedMean':trimmedMean, 'median':median}
 attack_type_list = ['sample poisoning', 'model poisoning', 'label flipping']
 poisoned_node_ratio_list = [10, 30, 50, 70, 90]
 noise_injected_ratio = 70
@@ -40,7 +40,8 @@ dataset_name = "MNIST"
 
 for alpha in alpha_list:
     for topology in topology_list:
-        for init_aggregation in init_aggregation_list:
+        for init_aggregation_name in init_aggregation_dict:
+            init_aggregation = init_aggregation_dict[init_aggregation_name]
             for attack_type in attack_type_list:
                 for poisoned_node_ratio in poisoned_node_ratio_list:
                     start_time = time.time()
@@ -72,22 +73,25 @@ for alpha in alpha_list:
                         test_dataset = MNIST(
                             f"{sys.path[0]}/data", train=False, download=True, transform=transforms.ToTensor()
                         )
+                    
+                    # mtd
+                    dynamic_topo = False
+                    dynamic_agg = False 
+                    is_proactive  = False 
 
                     # datetime object containing current date and time
                     now = datetime.now()
                     dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
-                    experimentsName = f'{num_peers}_clients_alpha_{alpha}_{dataset_name}_{topology}_'+dt_string
+                    experimentsName = f'{num_peers}_clients_alpha_{alpha}_{dataset_name}_{topology}_{init_aggregation_name}_{attack_type}_{poisoned_node_ratio}_dynamic_topo_{dynamic_topo}_dynamic_agg_{dynamic_agg}_is_proactive_{is_proactive}'+dt_string
                     targets = train_dataset.targets
                     client_indices = dirichlet_sampling_balanced(targets, alpha, num_peers)
                     cwd = os.getcwd()
 
                     experimentsName_path = cwd+'/experiments/'+experimentsName
-                    os.mkdir(experimentsName_path)
-
-                    # mtd
-                    dynamic_topo = True
-                    dynamic_agg = False 
-                    is_proactive  = True 
+                    if os.path.exists(experimentsName_path) and os.path.isdir(experimentsName_path):
+                        print(experimentsName_path)
+                    else:
+                        os.mkdir(experimentsName_path)                    
 
                     # initial the nodes
                     for client in range(num_peers):
