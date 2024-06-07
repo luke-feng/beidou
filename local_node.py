@@ -63,7 +63,8 @@ class local_node():
         self.reputation_threshold = 0.5
         
         # logger
-        self.logger = CSVLogger(save_dir=self.experimentsName_path, name=f"node_{node_id}")  
+        self.logger = CSVLogger(save_dir=self.experimentsName_path, name=f"node_{node_id}")
+        self.logger.log_metrics(config)
 
         # dataset and model
         if self.dataset_name == "MNIST":            
@@ -149,7 +150,7 @@ class local_node():
 
         
         # if model poisoning attack, change the model before send to others
-        if self.model_poison:
+        if self.model_poison and self.curren_round >= 1:
             cur_model_para = self.get_model_param()
             poisoned_model_dict = modelpoison(cur_model_para, self.noise_injected_ratio)
             self.model.load_state_dict(poisoned_model_dict)
