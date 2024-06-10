@@ -2,9 +2,8 @@ import os, sys
 from datetime import datetime
 import time
 from util import adjacency_matrix_to_nei_list, dirichlet_sampling_balanced, \
-    get_adjacency_matrix, generate_node_configs, generate_attack_matrix
-from torchvision.datasets import MNIST
-from torchvision import transforms
+    get_adjacency_matrix, generate_node_configs, generate_attack_matrix, load_dataset
+
 from local_node import local_node
 import pickle
 
@@ -36,6 +35,7 @@ attack_type_list = ['sample poisoning', 'model poisoning', 'label flipping']
 poisoned_node_ratio_list = [10, 30, 50, 70, 90]
 noise_injected_ratio = 70
 poisoned_sample_ratio = 100
+# dataset_name_list = ["MNIST", "FashionMNIST", "Cifar10", "Syscall"]
 dataset_name = "MNIST"
 
 for alpha in alpha_list:
@@ -62,17 +62,12 @@ for alpha in alpha_list:
                     #attack_type = 'model poisoning'
                     targeted = False
                     #poisoned_node_ratio = [0]
+                    
 
                     attack_matrix = generate_attack_matrix(list(range(num_peers)), attack_type, targeted, poisoned_node_ratio, noise_injected_ratio, poisoned_sample_ratio)
 
                     # dataset
-                    if dataset_name == "MNIST":
-                        train_dataset = MNIST(
-                            f"{sys.path[0]}/data", train=True, download=True, transform=transforms.ToTensor()
-                        )
-                        test_dataset = MNIST(
-                            f"{sys.path[0]}/data", train=False, download=True, transform=transforms.ToTensor()
-                        )
+                    train_dataset, test_dataset = load_dataset(dataset_name)
                     
                     # mtd
                     dynamic_topo = False

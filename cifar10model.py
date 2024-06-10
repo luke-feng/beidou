@@ -2,11 +2,11 @@ import torch
 from torchmetrics.classification import MulticlassAccuracy, MulticlassRecall, MulticlassPrecision, MulticlassF1Score, MulticlassConfusionMatrix
 from torchmetrics import MetricCollection
 import lightning.pytorch as pl
+from torch import nn
 
-
-class MNISTModelMLP(pl.LightningModule):
+class SimpleMobileNet(pl.LightningModule):
     """
-    LightningModule for MNIST.
+    LightningModule for CIFAR10.
     """
 
     def process_metrics(self, phase, y_pred, y, loss=None):
@@ -88,7 +88,7 @@ class MNISTModelMLP(pl.LightningModule):
 
     def __init__(
             self,
-            in_channels=1,
+            in_channels=3,
             out_channels=10,
             learning_rate=1e-3,
             metrics=None,
@@ -119,29 +119,44 @@ class MNISTModelMLP(pl.LightningModule):
             torch.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
 
-        self.example_input_array = torch.zeros(1, 1, 28, 28)
+        self.example_input_array = torch.rand(1, 3, 32, 32)
         self.learning_rate = learning_rate
+
+        def conv_dw(in_channels, out_channels, stride):
+            return nn.Sequential(
+                nn.Conv2d(in_channels, in_channels, 3, stride, 1, groups=in_channels, bias=False),
+                nn.BatchNorm2d(in_channels),
+                nn.ReLU(inplace=True),
+
+                nn.Conv2d(in_channels, out_channels, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(inplace=True),
+            )
 
         self.criterion = torch.nn.CrossEntropyLoss()
 
-        self.l1 = torch.nn.Linear(28 * 28, 256)
-        self.l2 = torch.nn.Linear(256, 128)
-        self.l3 = torch.nn.Linear(128, out_channels)
+        self.model = nn.Sequential(
+            nn.Conv2d(3, 32, 3, 1, 1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+
+            conv_dw(32, 64, 1),
+            conv_dw(64, 128, 2),
+            conv_dw(128, 128, 1),
+            conv_dw(128, 256, 2),
+            conv_dw(256, 256, 1),
+
+            nn.AdaptiveAvgPool2d(1),
+        )
+        self.fc = nn.Linear(256, out_channels)
 
         self.epoch_global_number = {"Train": 0, "Validation": 0, "Test": 0}
 
     def forward(self, x):
         """ """
-        batch_size, channels, width, height = x.size()
-
-        # (b, 1, 28, 28) -> (b, 1*28*28)
-        x = x.view(batch_size, -1)
-        x = self.l1(x)
-        x = torch.relu(x)
-        x = self.l2(x)
-        x = torch.relu(x)
-        x = self.l3(x)
-        x = torch.log_softmax(x, dim=1)
+        x = self.model(x)
+        x = x.view(-1, 256)
+        x = self.fc(x)
         return x
 
     def configure_optimizers(self):

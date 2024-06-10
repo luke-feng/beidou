@@ -4,9 +4,9 @@ from torchmetrics import MetricCollection
 import lightning.pytorch as pl
 
 
-class MNISTModelMLP(pl.LightningModule):
+class SYSCALLModelMLP(pl.LightningModule):
     """
-    LightningModule for MNIST.
+    LightningModule for SYSCALL.
     """
 
     def process_metrics(self, phase, y_pred, y, loss=None):
@@ -88,8 +88,8 @@ class MNISTModelMLP(pl.LightningModule):
 
     def __init__(
             self,
-            in_channels=1,
-            out_channels=10,
+            in_channels=17,
+            out_channels=9,
             learning_rate=1e-3,
             metrics=None,
             confusion_matrix=None,
@@ -119,28 +119,49 @@ class MNISTModelMLP(pl.LightningModule):
             torch.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
 
-        self.example_input_array = torch.zeros(1, 1, 28, 28)
+        self.example_input_array = torch.rand(1, 17)
         self.learning_rate = learning_rate
 
         self.criterion = torch.nn.CrossEntropyLoss()
 
-        self.l1 = torch.nn.Linear(28 * 28, 256)
-        self.l2 = torch.nn.Linear(256, 128)
-        self.l3 = torch.nn.Linear(128, out_channels)
+        self.l1 = torch.nn.Linear(17, 64)
+        self.batchnorm1 = torch.nn.BatchNorm1d(64)
+        self.dropout = torch.nn.Dropout(0.5)
+        self.l2 = torch.nn.Linear(64, 128)
+        self.batchnorm2 = torch.nn.BatchNorm1d(128)
+        self.l3 = torch.nn.Linear(128, 256)
+        self.batchnorm3 = torch.nn.BatchNorm1d(256)
+        self.l4 = torch.nn.Linear(256, 128)
+        self.batchnorm4 = torch.nn.BatchNorm1d(128)
+        self.l5 = torch.nn.Linear(128, 64)
+        self.batchnorm5 = torch.nn.BatchNorm1d(64)
+        self.l6 = torch.nn.Linear(64, out_channels)
 
         self.epoch_global_number = {"Train": 0, "Validation": 0, "Test": 0}
 
     def forward(self, x):
         """ """
-        batch_size, channels, width, height = x.size()
-
-        # (b, 1, 28, 28) -> (b, 1*28*28)
-        x = x.view(batch_size, -1)
         x = self.l1(x)
+        x = self.batchnorm1(x)
         x = torch.relu(x)
+        x = self.dropout(x)
         x = self.l2(x)
+        x = self.batchnorm2(x)
         x = torch.relu(x)
+        
         x = self.l3(x)
+        x = self.batchnorm3(x)
+        x = torch.relu(x)
+
+        x = self.l4(x)
+        x = self.batchnorm4(x)
+        x = torch.relu(x)
+
+        x = self.l5(x)
+        x = self.batchnorm5(x)
+        x = torch.relu(x)
+
+        x = self.l6(x)
         x = torch.log_softmax(x, dim=1)
         return x
 

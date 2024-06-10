@@ -2,9 +2,8 @@ import os, sys
 from datetime import datetime
 import time
 from util import adjacency_matrix_to_nei_list, dirichlet_sampling_balanced, \
-    get_adjacency_matrix, generate_node_configs, generate_attack_matrix
-from torchvision.datasets import MNIST
-from torchvision import transforms
+    get_adjacency_matrix, generate_node_configs, generate_attack_matrix, load_dataset
+
 from local_node import local_node
 import pickle
 
@@ -36,14 +35,14 @@ attack_type_list = ['sample poisoning', 'model poisoning', 'label flipping']
 poisoned_node_ratio_list = [10, 30, 50, 70, 90]
 noise_injected_ratio = 100
 poisoned_sample_ratio = 100
-dataset_name = "MNIST"
+dataset_name = "Syscall"
 
 alpha = alpha_list[0]
 topology = topology_list[0]
 init_aggregation = fed_avg
 init_aggregation_name = 'fed_avg'
 attack_type = 'model poisoning'
-poisoned_node_ratio = 10
+poisoned_node_ratio = 0
 
 start_time = time.time()
 node_list = {}                   
@@ -67,13 +66,7 @@ targeted = False
 attack_matrix = generate_attack_matrix(list(range(num_peers)), attack_type, targeted, poisoned_node_ratio, noise_injected_ratio, poisoned_sample_ratio)
 
 # dataset
-if dataset_name == "MNIST":
-    train_dataset = MNIST(
-        f"{sys.path[0]}/data", train=True, download=True, transform=transforms.ToTensor()
-    )
-    test_dataset = MNIST(
-        f"{sys.path[0]}/data", train=False, download=True, transform=transforms.ToTensor()
-    )
+train_dataset, test_dataset = load_dataset(dataset_name)
 
 # mtd
 dynamic_topo = False
@@ -158,4 +151,4 @@ for round in range(1, maxRound+1):
 end_time = time.time()
 print(f"finished in {end_time-start_time} seconds")
 
-time.sleep(10)
+# time.sleep(10)

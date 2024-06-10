@@ -16,6 +16,9 @@ import copy
 from util import cosine_metric, cosine_metric2, manhattan_metric, chebyshev_metric, pearson_correlation_metric, euclidean_metric
 from sklearn.cluster import DBSCAN
 from lightning.pytorch.strategies import DDPStrategy
+from fmnistmodel import FashionMNISTModelMLP
+from cifar10model import SimpleMobileNet
+from syscallmodel import SYSCALLModelMLP
 
 class local_node():
     def __init__(
@@ -71,6 +74,15 @@ class local_node():
         if self.dataset_name == "MNIST":            
             self.model = MNISTModelMLP()
             self.aggregated_model = MNISTModelMLP()
+        if self.dataset_name == "FashionMNIST":            
+            self.model = FashionMNISTModelMLP()
+            self.aggregated_model = FashionMNISTModelMLP()
+        if self.dataset_name == "Cifar10":            
+            self.model = SimpleMobileNet()
+            self.aggregated_model = SimpleMobileNet()
+        if self.dataset_name == "Syscall":            
+            self.model = SYSCALLModelMLP()
+            self.aggregated_model = SYSCALLModelMLP()
         
         self.nei_models = {}
         self.data_train = data_train
@@ -141,14 +153,15 @@ class local_node():
        
     def local_training(self):
         # trainer = pl.Trainer(max_epochs=self.maxEpoch, accelerator='cuda', devices=-1) 
-        ddp = DDPStrategy(process_group_backend="gloo")
+        # ddp = DDPStrategy(process_group_backend="gloo")
         trainer = pl.Trainer(logger=self.logger,
                              max_epochs=self.maxEpoch, 
-                             devices=2,
+                             devices=1,
                              accelerator="cuda",
                              enable_progress_bar=False, 
                              enable_checkpointing=False,
-                             strategy=ddp)
+                            #  strategy=ddp
+                             )
         
         trainer.fit(self.model, train_dataloaders=self.data_train, val_dataloaders=self.data_val)
 

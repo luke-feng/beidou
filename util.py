@@ -1,3 +1,4 @@
+import sys
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,8 +11,15 @@ import networkx as nx
 from typing import OrderedDict, List, Optional
 import logging
 
+from torchvision import transforms
+from torchvision.datasets import MNIST
+from torchvision.datasets import CIFAR10
+from torchvision.datasets import FashionMNIST
+from syscalldataset import SYSCALL
+
 # Define function for Dirichlet sampling and balanced data distribution
 def dirichlet_sampling_balanced(targets, alpha, num_clients):
+    targets = np.array(targets)
     num_classes = len(np.unique(targets))
     data_per_client = [[] for _ in range(num_clients)]
     
@@ -153,7 +161,6 @@ def generate_node_configs(node_id:int, indices:list, experimentsName:str, experi
                     len(tr_subset) - int(len(tr_subset) * 0.8),
                 ],
             )
-
     data_train_loader = DataLoader(data_train, batch_size=64,shuffle=True)
     data_val_loader = DataLoader(data_val, batch_size=64,shuffle=False)
     test_dataset_loader = DataLoader(test_dataset, batch_size=64,shuffle=False)
@@ -234,8 +241,8 @@ def cosine_metric2(model1: OrderedDict[str, torch.Tensor], model2: OrderedDict[s
 
     for layer in model1:
         if layer in model2:
-            l1 = model1[layer].flatten()
-            l2 = model2[layer].flatten()
+            l1 = model1[layer].flatten().to(torch.float32)
+            l2 = model2[layer].flatten().to(torch.float32)
             if l1.shape != l2.shape:
                 # Adjust the shape of the smaller layer to match the larger layer
                 min_len = min(l1.shape[0], l2.shape[0])
@@ -290,8 +297,8 @@ def euclidean_metric(model1: OrderedDict[str, torch.Tensor], model2: OrderedDict
 
     for layer in model1:
         if layer in model2:
-            l1 = model1[layer].flatten()
-            l2 = model2[layer].flatten()
+            l1 = model1[layer].flatten().to(torch.float32)
+            l2 = model2[layer].flatten().to(torch.float32)
             if standardized:
                 l1 = (l1 - l1.mean()) / l1.std()
                 l2 = (l2 - l2.mean()) / l2.std()
@@ -319,8 +326,8 @@ def minkowski_metric(model1: OrderedDict[str, torch.Tensor], model2: OrderedDict
 
     for layer in model1:
         if layer in model2:
-            l1 = model1[layer].flatten()
-            l2 = model2[layer].flatten()
+            l1 = model1[layer].flatten().to(torch.float32)
+            l2 = model2[layer].flatten().to(torch.float32)
 
             distance = torch.norm(l1 - l2, p=p)
             if similarity:
@@ -344,8 +351,8 @@ def chebyshev_metric(model1: OrderedDict[str, torch.Tensor], model2: OrderedDict
 
     for layer in model1:
         if layer in model2:
-            l1 = model1[layer].flatten()
-            l2 = model2[layer].flatten()
+            l1 = model1[layer].flatten().to(torch.float32)
+            l2 = model2[layer].flatten().to(torch.float32)
 
             distance = torch.norm(l1 - l2, p=float('inf'))
             if similarity:
@@ -370,8 +377,8 @@ def manhattan_metric(model1: OrderedDict[str, torch.Tensor], model2: OrderedDict
 
     for layer in model1:
         if layer in model2:
-            l1 = model1[layer].flatten()
-            l2 = model2[layer].flatten()
+            l1 = model1[layer].flatten().to(torch.float32)
+            l2 = model2[layer].flatten().to(torch.float32)
 
             distance = torch.norm(l1 - l2, p=1)
             if similarity:
@@ -415,3 +422,51 @@ def pearson_correlation_metric(model1: OrderedDict[str, torch.Tensor], model2: O
         return avg_correlation.item()
     else:
         return None
+
+
+def load_dataset(dataset_name:str='MNIST'):
+    if dataset_name == "MNIST":
+        train_dataset = MNIST(
+            f"{sys.path[0]}/data", train=True, download=True, transform=transforms.ToTensor()
+        )
+        test_dataset = MNIST(
+            f"{sys.path[0]}/data", train=False, download=True, transform=transforms.ToTensor()
+        )
+    if dataset_name == "FashionMNIST":
+        fashionmnist_transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, ), (0.5, ))
+        ])
+        train_dataset = FashionMNIST(
+            f"{sys.path[0]}/data", train=True, download=True, transform=fashionmnist_transforms
+        )
+        test_dataset = FashionMNIST(
+            f"{sys.path[0]}/data", train=False, download=True, transform=fashionmnist_transforms
+        )
+    if dataset_name == "Cifar10":
+        mean = (0.4914, 0.4822, 0.4465)
+        std = (0.2471, 0.2435, 0.2616)
+        cifar10_transforms = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean, std),
+        ])
+        train_dataset = CIFAR10(
+            f"{sys.path[0]}/data", train=True, download=True, transform=cifar10_transforms
+        )
+        test_dataset = CIFAR10(
+            f"{sys.path[0]}/data", train=False, download=True, transform=cifar10_transforms
+        )
+    if dataset_name == "Syscall":
+        syscall_transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, ), (0.5, ))
+        ])
+        train_dataset = SYSCALL(
+            f"{sys.path[0]}/data", train=True, download=True, transform=syscall_transforms
+        )
+        test_dataset = SYSCALL(
+            f"{sys.path[0]}/data", train=False, download=True, transform=syscall_transforms
+        )
+    return train_dataset, test_dataset

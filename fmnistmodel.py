@@ -2,11 +2,10 @@ import torch
 from torchmetrics.classification import MulticlassAccuracy, MulticlassRecall, MulticlassPrecision, MulticlassF1Score, MulticlassConfusionMatrix
 from torchmetrics import MetricCollection
 import lightning.pytorch as pl
-
-
-class MNISTModelMLP(pl.LightningModule):
+import torchvision.models as models
+class FashionMNISTModelMLP(pl.LightningModule):
     """
-    LightningModule for MNIST.
+    LightningModule for FashionMNIST.
     """
 
     def process_metrics(self, phase, y_pred, y, loss=None):
@@ -124,9 +123,16 @@ class MNISTModelMLP(pl.LightningModule):
 
         self.criterion = torch.nn.CrossEntropyLoss()
 
-        self.l1 = torch.nn.Linear(28 * 28, 256)
-        self.l2 = torch.nn.Linear(256, 128)
-        self.l3 = torch.nn.Linear(128, out_channels)
+        # self.l1 = torch.nn.Linear(28 * 28, 256)
+        # self.l2 = torch.nn.Linear(256, 512)
+        # self.l3 = torch.nn.Linear(512, 256)
+        # self.l4 = torch.nn.Linear(256, 128)
+        # self.l5 = torch.nn.Linear(128, out_channels)
+
+        self.conv1 = torch.nn.Conv2d(1, 32, 3, 1)
+        self.conv2 = torch.nn.Conv2d(32, 64, 3, 1)
+        self.fc1 = torch.nn.Linear(12 * 12 * 64, 128)
+        self.fc2 = torch.nn.Linear(128, 10)
 
         self.epoch_global_number = {"Train": 0, "Validation": 0, "Test": 0}
 
@@ -135,12 +141,21 @@ class MNISTModelMLP(pl.LightningModule):
         batch_size, channels, width, height = x.size()
 
         # (b, 1, 28, 28) -> (b, 1*28*28)
-        x = x.view(batch_size, -1)
-        x = self.l1(x)
-        x = torch.relu(x)
-        x = self.l2(x)
-        x = torch.relu(x)
-        x = self.l3(x)
+        # x = x.view(batch_size, -1)
+        # x = self.l1(x)
+        # x = torch.relu(x)
+        # x = self.l2(x)
+        # x = torch.relu(x)
+        # x = self.l3(x)
+        # x = torch.relu(x)
+        # x = self.l4(x)
+        # x = torch.relu(x)
+        # x = self.l5(x)
+        x = torch.relu(self.conv1(x))
+        x = torch.max_pool2d(torch.relu(self.conv2(x)), 2)
+        x = x.view(-1, 12 * 12 * 64)
+        x = torch.relu(self.fc1(x))
+        x = self.fc2(x)
         x = torch.log_softmax(x, dim=1)
         return x
 

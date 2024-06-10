@@ -15,6 +15,8 @@ def fed_avg(models):
 
     # Create a Zero Model
     accum = {layer: torch.zeros_like(param) for layer, param in models[0].items()}
+    # for layer in models[0]:
+    #     print(models[0][layer].dtype, accum[layer].dtype)
 
     # Add weighted models
     for model in models:
@@ -23,7 +25,8 @@ def fed_avg(models):
 
     # Normalize Accum
     for layer in accum:
-        accum[layer] /= total_samples
+        avg = accum[layer]/total_samples
+        accum[layer] = avg.to(accum[layer].dtype)
         
     # self.print_model_size(accum)
 
