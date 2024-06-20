@@ -151,7 +151,7 @@ class local_node():
             self.nei_model_record[round] = {}
             self.nei_model_record[round][nei_id]=nei_model
        
-    def local_training(self):
+    def local_training(self,with_checkpoints:bool=True):
         # trainer = pl.Trainer(max_epochs=self.maxEpoch, accelerator='cuda', devices=-1) 
         # ddp = DDPStrategy(process_group_backend="gloo")
         trainer = pl.Trainer(logger=self.logger,
@@ -175,7 +175,8 @@ class local_node():
         print(f"Performance of Node {self.node_id} before aggregation at round {self.curren_round}")
         trainer.test(self.model, self.test_dataset)
 
-        trainer.save_checkpoint(f"{self.experimentsName_path}/checkpoint_{self.experimentsName}_node_{self.node_id}_round_{self.curren_round}.ckpt")
+        if with_checkpoints:
+            trainer.save_checkpoint(f"{self.experimentsName_path}/checkpoint_{self.experimentsName}_node_{self.node_id}_round_{self.curren_round}.ckpt")
         
     def aggregator(self, func, *args):
         return func(*args)
