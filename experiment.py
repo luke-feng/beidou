@@ -4,6 +4,7 @@ import time
 from util import adjacency_matrix_to_nei_list, dirichlet_sampling_balanced, \
     get_adjacency_matrix, generate_node_configs, generate_attack_matrix, load_dataset
 
+from evaluation_util import read_experiment_csvs
 from local_node import local_node
 import pickle
 
@@ -151,5 +152,5 @@ for alpha in alpha_list:
 
                     end_time = time.time()
                     print(f"finished in {end_time-start_time} seconds")
-                    
+                    read_experiment_csvs(experimentsName=experimentsName)                    
                     time.sleep(10)
