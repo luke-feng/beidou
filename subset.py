@@ -10,14 +10,15 @@ class ChangeableSubset(Subset):
     def __init__(self,
                  dataset,
                  indices,
-                 label_flipping=False,
-                 data_poisoning=False,
-                 poisoned_sample_ratio=0,
-                 noise_injected_ratio=0,
-                 targeted=False,
-                 target_label=0,
-                 target_changed_label=0,
-                 noise_type="salt"):
+                 label_flipping:bool=False,
+                 data_poisoning:bool=False,
+                 poisoned_sample_ratio:int=0,
+                 noise_injected_ratio:int=0,
+                 targeted:bool=False,
+                 target_label:int=0,
+                 target_changed_label:int=0,
+                 noise_type:str="salt",
+                 backdoor_validation:bool=False):
         super().__init__(dataset, indices)
         new_dataset = copy.copy(dataset)
         self.dataset = new_dataset
@@ -30,11 +31,12 @@ class ChangeableSubset(Subset):
         self.target_label = target_label
         self.target_changed_label = target_changed_label
         self.noise_type = noise_type
+        self.backdoor_validation = backdoor_validation
 
         if self.label_flipping:
             self.dataset = labelFlipping(self.dataset, self.indices, self.poisoned_sample_ratio, self.targeted, self.target_label, self.target_changed_label)
         if self.data_poisoning:
-            self.dataset = datapoison(self.dataset, self.indices, self.poisoned_sample_ratio, self.noise_injected_ratio, self.targeted, self.target_label, self.noise_type)
+            self.dataset = datapoison(self.dataset, self.indices, self.poisoned_sample_ratio, self.noise_injected_ratio, self.targeted, self.target_label, self.noise_type, self.backdoor_validation)
 
     def __getitem__(self, idx):
         if isinstance(idx, list):

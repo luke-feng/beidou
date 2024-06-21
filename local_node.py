@@ -1,4 +1,5 @@
 import lightning.pytorch as pl
+import torch
 import os, sys
 from mnistmodel import MNISTModelMLP
 from subset import ChangeableSubset
@@ -19,6 +20,8 @@ from lightning.pytorch.strategies import DDPStrategy
 from fmnistmodel import FashionMNISTModelMLP
 from cifar10model import SimpleMobileNet
 from syscallmodel import SYSCALLModelMLP
+from data_util import DynamicDataLoader, DynamicDataset, dynamic_transformer
+from itertools import product
 
 class local_node():
     def __init__(
@@ -27,7 +30,8 @@ class local_node():
             config: dict={},
             data_train: DataLoader=None , 
             data_val: DataLoader=None ,
-            test_dataset: DataLoader=None 
+            test_dataset: DataLoader=None,
+            backdoor_valid_loader: DataLoader=None,
 
     ):
         # basic info
@@ -61,7 +65,9 @@ class local_node():
         # mtd
         self.dynamic_topo = self.config['dynamic_topo']
         self.dynamic_agg = self.config['dynamic_agg']
+        self.dynamic_data = self.config['dynamic_data']
         self.is_proactive = self.config['is_proactive']
+        
         
         self.candidate_threshold = int(self.num_peers/2)
         self.reputation_threshold = 0.5
@@ -85,9 +91,16 @@ class local_node():
             self.aggregated_model = SYSCALLModelMLP()
         
         self.nei_models = {}
-        self.data_train = data_train
-        self.data_val = data_val
-        self.test_dataset = test_dataset
+        self.train_dataloader = data_train
+        self.val_dataloader = data_val
+        self.test_dataloader = test_dataset
+        self.backdoor_valid_dataloader = backdoor_valid_loader
+        self.target_label = backdoor_valid_loader.dataset.target_label
+
+        self.train_dataset = data_train.dataset
+        self.val_dataset = data_val.dataset
+        self.test_dataset = test_dataset.dataset
+        self.backdoor_valid_dataset = backdoor_valid_loader.dataset
 
         
         # run time record        
@@ -151,7 +164,7 @@ class local_node():
             self.nei_model_record[round] = {}
             self.nei_model_record[round][nei_id]=nei_model
        
-    def local_training(self,with_checkpoints:bool=True):
+    def local_training(self,with_checkpoints:bool=False):
         # trainer = pl.Trainer(max_epochs=self.maxEpoch, accelerator='cuda', devices=-1) 
         # ddp = DDPStrategy(process_group_backend="gloo")
         trainer = pl.Trainer(logger=self.logger,
@@ -163,7 +176,22 @@ class local_node():
                             #  strategy=ddp
                              )
         
-        trainer.fit(self.model, train_dataloaders=self.data_train, val_dataloaders=self.data_val)
+        if self.dynamic_data:
+            applier = dynamic_transformer(self.train_dataset.dataset[0][0].shape[-1], self.train_dataset.dataset[0][0].shape[-1])
+            print(f"current applier{applier}")
+            data_train_dynamic = DynamicDataset(self.train_dataset, applier)
+            data_val_dynamic = DynamicDataset(self.val_dataset, applier)
+            # test_dataset_dynamic = DynamicDataset(self.test_dataset, applier)
+            # backdoor_valid_dataset_dynamic = DynamicDataset(self.backdoor_valid_dataset, applier)
+
+            self.train_dataloader = DataLoader(data_train_dynamic, batch_size=64, shuffle=True )
+            self.val_dataloader = DataLoader(data_val_dynamic, batch_size=64,shuffle=False)
+            # self.test_dataloader = DataLoader(test_dataset_dynamic, batch_size=64,shuffle=False)
+            # self.backdoor_valid_dataloader = DataLoader(backdoor_valid_dataset_dynamic, batch_size=64,shuffle=False)
+
+
+        trainer.fit(self.model, train_dataloaders=self.train_dataloader, val_dataloaders=self.val_dataloader)
+        
 
         
         # if model poisoning attack, change the model before send to others
@@ -173,11 +201,48 @@ class local_node():
             self.model.load_state_dict(poisoned_model_dict)
         
         print(f"Performance of Node {self.node_id} before aggregation at round {self.curren_round}")
-        trainer.test(self.model, self.test_dataset)
+        trainer.test(self.model, self.test_dataloader)
+        self.cal_backdoor_acc()
 
         if with_checkpoints:
             trainer.save_checkpoint(f"{self.experimentsName_path}/checkpoint_{self.experimentsName}_node_{self.node_id}_round_{self.curren_round}.ckpt")
+    
+    def cal_backdoor_acc(self):
+        data_loader = self.backdoor_valid_dataloader
+
+        all_targets, all_predictions = [], []
+        with torch.no_grad():
+            for i, (features, targets) in enumerate(data_loader):
+                logits = self.model(features)
+                _, predicted_labels = torch.max(logits, 1)
+                all_targets.extend(targets.detach().cpu())
+                all_predictions.extend(predicted_labels.detach().cpu())
+
+        all_predictions = np.array(all_predictions)
+        all_targets = np.array(all_targets)
+
+        class_labels = np.unique(np.concatenate((all_targets, all_predictions)))
+        if class_labels.shape[0] == 1:
+            if class_labels[0] != 0:
+                class_labels = np.array([0, class_labels[0]])
+            else:
+                class_labels = np.array([class_labels[0], 1])
+        n_labels = class_labels.shape[0]
+        lst = []
+        z = list(zip(all_targets, all_predictions))
+        for combi in product(class_labels, repeat=2):
+            lst.append(z.count(combi))
+        confmat = np.asarray(lst)[:, None].reshape(n_labels, n_labels)
+
+        target_label = self.target_label
+        num_predicted_target = confmat.sum(axis=0)[target_label] - confmat.item((target_label, target_label))
+        num_samples = len(data_loader.dataset) - confmat.item((target_label, target_label))
+        attacker_success = num_predicted_target / num_samples
+        self.logger.log_metrics({"Test/ASR-backdoor": attacker_success})
+        print("Computed ASR Backdoor: {}".format(attacker_success))
+        return confmat
         
+
     def aggregator(self, func, *args):
         return func(*args)
 
@@ -196,6 +261,8 @@ class local_node():
             repList.remove(max_value)
         
         X = np.array(list(repList)).reshape(-1, 1)
+        nan_mask = np.isnan(X)
+        X = X[~nan_mask]
         db = DBSCAN(eps=sensitive, min_samples=1)
         clusters = db.fit_predict(X.reshape(-1,1))
         unique_labels = set(clusters)
@@ -297,5 +364,6 @@ class local_node():
                              enable_checkpointing=False,
                              )
         print(f"Performance of Node {self.node_id} after aggregation at round {self.curren_round}")
-        trainer.test(self.model, self.test_dataset)
+        trainer.test(self.model, self.test_dataloader)
+        self.cal_backdoor_acc()
 

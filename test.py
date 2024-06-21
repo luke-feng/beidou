@@ -35,14 +35,14 @@ attack_type_list = ['sample poisoning', 'model poisoning', 'label flipping']
 poisoned_node_ratio_list = [10, 30, 50, 70, 90]
 noise_injected_ratio = 100
 poisoned_sample_ratio = 100
-dataset_name = "Syscall"
+dataset_name = "MNIST"
 
 alpha = alpha_list[0]
 topology = topology_list[0]
 init_aggregation = fed_avg
 init_aggregation_name = 'fed_avg'
-attack_type = 'model poisoning'
-poisoned_node_ratio = 0
+attack_type = 'sample poisoning'
+poisoned_node_ratio = 10
 
 start_time = time.time()
 node_list = {}                   
@@ -60,7 +60,7 @@ test_dataset = None
 # define the attack
 # attack should be one of ['sample poisoning', 'model poisoning', 'label flipping', 'no attack']
 #attack_type = 'model poisoning'
-targeted = False
+targeted = True
 #poisoned_node_ratio = [0]
 
 attack_matrix = generate_attack_matrix(list(range(num_peers)), attack_type, targeted, poisoned_node_ratio, noise_injected_ratio, poisoned_sample_ratio)
@@ -70,13 +70,14 @@ train_dataset, test_dataset = load_dataset(dataset_name)
 
 # mtd
 dynamic_topo = False
-dynamic_agg = False 
+dynamic_agg = False
+dynamic_data = True 
 is_proactive  = False 
 
 # datetime object containing current date and time
 now = datetime.now()
 dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
-experimentsName = f'{num_peers}_clients_alpha_{alpha}_{dataset_name}_{topology}_{init_aggregation_name}_{attack_type}_{poisoned_node_ratio}_dynamic_topo_{dynamic_topo}_dynamic_agg_{dynamic_agg}_is_proactive_{is_proactive}'+dt_string
+experimentsName = f'{num_peers}_clients_alpha_{alpha}_{dataset_name}_{topology}_{init_aggregation_name}_{attack_type}_{poisoned_node_ratio}_dynamic_topo_{dynamic_topo}_dynamic_agg_{dynamic_agg}_dynamic_data_{dynamic_data}_is_proactive_{is_proactive}'+dt_string
 targets = train_dataset.targets
 client_indices = dirichlet_sampling_balanced(targets, alpha, num_peers)
 cwd = os.getcwd()
@@ -103,14 +104,15 @@ for client in range(num_peers):
                                         dataset_name, neiList, num_peers, maxRound, maxEpoch, 
                                         train_dataset, test_dataset, attack_type, targeted, 
                                         noise_injected_ratio, poisoned_sample_ratio, init_aggregation,
-                                        dynamic_topo, dynamic_agg, is_proactive)
+                                        dynamic_topo, dynamic_agg, dynamic_data, is_proactive)
     
     basic_config = node_config['basic_config']
     data_train_loader = node_config['data_train_loader']
     data_val_loader = node_config['data_val_loader']
     test_dataset_loader = node_config['test_dataset_loader']
+    backdoor_valid_loader = node_config['backdoor_valid_loader']
     
-    node = local_node(node_id,basic_config, data_train_loader, data_val_loader, test_dataset_loader)
+    node = local_node(node_id,basic_config, data_train_loader, data_val_loader, test_dataset_loader, backdoor_valid_loader)
     node_list[node_id] = node
     
     with open(experimentsName_path+f"/{node_id}_config.pk", "wb") as f:

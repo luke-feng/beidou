@@ -73,12 +73,13 @@ for alpha in alpha_list:
                     # mtd
                     dynamic_topo = False
                     dynamic_agg = False 
+                    dynamic_data = False 
                     is_proactive  = False 
 
                     # datetime object containing current date and time
                     now = datetime.now()
                     dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
-                    experimentsName = f'{num_peers}_clients_alpha_{alpha}_{dataset_name}_{topology}_{init_aggregation_name}_{attack_type}_{poisoned_node_ratio}_dynamic_topo_{dynamic_topo}_dynamic_agg_{dynamic_agg}_is_proactive_{is_proactive}'+dt_string
+                    experimentsName = f'{num_peers}_clients_alpha_{alpha}_{dataset_name}_{topology}_{init_aggregation_name}_{attack_type}_{poisoned_node_ratio}_dynamic_topo_{dynamic_topo}_dynamic_agg_{dynamic_agg}_dynamic_data_{dynamic_data}_is_proactive_{is_proactive}'+dt_string
                     targets = train_dataset.targets
                     client_indices = dirichlet_sampling_balanced(targets, alpha, num_peers)
                     cwd = os.getcwd()
@@ -102,17 +103,18 @@ for alpha in alpha_list:
                         poisoned_sample_ratio = attack_info['poisoned_sample_ratio']
 
                         node_config = generate_node_configs(node_id, indices, experimentsName, experimentsName_path, 
-                                                            dataset_name, neiList, num_peers, maxRound, maxEpoch, 
-                                                            train_dataset, test_dataset, attack_type, targeted, 
-                                                            noise_injected_ratio, poisoned_sample_ratio, init_aggregation,
-                                                            dynamic_topo, dynamic_agg, is_proactive)
+                                        dataset_name, neiList, num_peers, maxRound, maxEpoch, 
+                                        train_dataset, test_dataset, attack_type, targeted, 
+                                        noise_injected_ratio, poisoned_sample_ratio, init_aggregation,
+                                        dynamic_topo, dynamic_agg, dynamic_data, is_proactive)
                         
                         basic_config = node_config['basic_config']
                         data_train_loader = node_config['data_train_loader']
                         data_val_loader = node_config['data_val_loader']
                         test_dataset_loader = node_config['test_dataset_loader']
-                        
-                        node = local_node(node_id,basic_config, data_train_loader, data_val_loader, test_dataset_loader)
+                        backdoor_valid_loader = node_config['backdoor_valid_loader']
+    
+                        node = local_node(node_id,basic_config, data_train_loader, data_val_loader, test_dataset_loader, backdoor_valid_loader)
                         node_list[node_id] = node
                         
                         with open(experimentsName_path+f"/{node_id}_config.pk", "wb") as f:

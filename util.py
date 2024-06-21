@@ -104,7 +104,7 @@ def generate_node_configs(node_id:int, indices:list, experimentsName:str, experi
                           dataset_name:str, neiList:list, num_peers:int, maxRound:int, maxEpoch:int, 
                           train_dataset, test_dataset, attack_type:str, targeted:Union[bool, str], 
                           noise_injected_ratio:int, poisoned_sample_ratio:int, aggregation,
-                          dynamic_topo:bool, dynamic_agg:bool, is_proactive:bool):
+                          dynamic_topo:bool, dynamic_agg:bool,dynamic_data:bool, is_proactive:bool):
     basic_config = {}
     node_config = {}   
 
@@ -125,13 +125,10 @@ def generate_node_configs(node_id:int, indices:list, experimentsName:str, experi
         "aggregation": aggregation,
         "dynamic_topo": dynamic_topo,
         "dynamic_agg": dynamic_agg,
+        "dynamic_data": dynamic_data,
         "is_proactive": is_proactive
        }
-    
-    number_test = int(len(test_dataset)/num_peers)
-    test_indices = random.sample(range(len(test_dataset)), number_test)
-    test_dataset = Subset(test_dataset, test_indices)
-    
+       
     label_flipping = False
     data_poisoning = False
     attack_targeted = False
@@ -145,8 +142,8 @@ def generate_node_configs(node_id:int, indices:list, experimentsName:str, experi
     if str(targeted).lower() == 'true':
         attack_targeted = True
     
-    target_label=0,
-    target_changed_label=0,
+    target_label=3
+    target_changed_label=7
     noise_type="salt"
     
       
@@ -163,14 +160,30 @@ def generate_node_configs(node_id:int, indices:list, experimentsName:str, experi
             )
     data_train_loader = DataLoader(data_train, batch_size=64,shuffle=True)
     data_val_loader = DataLoader(data_val, batch_size=64,shuffle=False)
+
+    number_test = int(len(test_dataset)/num_peers)
+    test_indices = random.sample(range(len(test_dataset)), number_test)   
+
+    
+    number_backdoor_valid = int(number_test*0.2)
+    test_backdoor_valid_indices = random.sample(test_indices, number_backdoor_valid)
+    test_indices = list(set(test_indices) - set(test_backdoor_valid_indices))
+    test_backdoor_valid = ChangeableSubset(test_dataset, test_backdoor_valid_indices, label_flipping=False, 
+                                           data_poisoning=True, poisoned_sample_ratio=100, noise_injected_ratio=100, 
+                                           targeted=True, target_label=3, target_changed_label=7, noise_type="salt", 
+                                           backdoor_validation=True)
+    
+    backdoor_valid_loader = DataLoader(test_backdoor_valid, batch_size=64,shuffle=False)
+    
+    test_dataset = Subset(test_dataset, test_indices)            
     test_dataset_loader = DataLoader(test_dataset, batch_size=64,shuffle=False)
 
     node_config = {
         "basic_config":basic_config,
         "data_train_loader": data_train_loader,
         "data_val_loader": data_val_loader,
-        "test_dataset_loader": test_dataset_loader
-
+        "test_dataset_loader": test_dataset_loader,
+        "backdoor_valid_loader": backdoor_valid_loader
     }
     return node_config
 
