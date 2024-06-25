@@ -298,7 +298,7 @@ class local_node():
         return nei_reputation_score
     
     def dynamic_topology(self, nei_reputation_score, rep_threshold):
-        if self.attack_type.lower() == 'no attack':
+        if self.attack_type.lower() == 'no_attack':
             connected_node = len(self.neiList)
             self.reputation_threshold = rep_threshold
             print(f"[Reputation_threshold] in {self.node_id}: {self.reputation_threshold}")

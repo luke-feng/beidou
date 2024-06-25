@@ -14,6 +14,9 @@ from trimmedmean import trimmedMean
 from median import median
 import copy 
 
+import time
+from datetime import timedelta
+
 import logging
 # configure logging at the root level of Lightning
 logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
@@ -26,18 +29,35 @@ log.setLevel(logging.ERROR)
 
 
 
+# num_peers = 10
+# alpha_list = [100, 1, 0.1]
+# topology_list = ["fully", "star", "ring"]
+# maxRound = 30
+# maxEpoch = 1
+# init_aggregation_dict = {'fed_avg':fed_avg, 'krum':krum, 'trimmedMean':trimmedMean, 'median':median}
+# attack_type_list = ['sample poisoning', 'model poisoning', 'label flipping', 'no_attack']
+# poisoned_node_ratio_list = [10, 30, 50, 70, 90]
+# noise_injected_ratio = 70
+# poisoned_sample_ratio = 100
+# # dataset_name_list = ["MNIST", "FashionMNIST", "Cifar10", "Syscall"]
+# dataset_name = "MNIST"
+
+
+# 6月22日 fedavg 
 num_peers = 10
-alpha_list = [100, 1, 0.1]
-topology_list = ["fully", "star", "ring"]
+alpha_list = [ 1, 0.5, 0.1]
+topology_list = ["fully"]
 maxRound = 30
-maxEpoch = 1
-init_aggregation_dict = {'fed_avg':fed_avg, 'krum':krum, 'trimmedMean':trimmedMean, 'median':median}
-attack_type_list = ['sample poisoning', 'model poisoning', 'label flipping', 'no attack']
-poisoned_node_ratio_list = [10, 30, 50, 70, 90]
+maxEpoch = 10
+init_aggregation_dict = {'fed_avg':fed_avg}
+attack_type_list = ['no_attack']
+poisoned_node_ratio_list = [0]
 noise_injected_ratio = 70
 poisoned_sample_ratio = 100
-# dataset_name_list = ["MNIST", "FashionMNIST", "Cifar10", "Syscall"]
-dataset_name = "MNIST"
+dataset_name_list = ["MNIST", "FashionMNIST", "Cifar10"]
+dataset_name = "FashionMNIST"
+
+
 
 for alpha in alpha_list:
     for topology in topology_list:
@@ -59,7 +79,7 @@ for alpha in alpha_list:
                     test_dataset = None
 
                     # define the attack
-                    # attack should be one of ['sample poisoning', 'model poisoning', 'label flipping', 'no attack']
+                    # attack should be one of ['sample poisoning', 'model poisoning', 'label flipping', 'no_attack']
                     #attack_type = 'model poisoning'
                     targeted = False
                     #poisoned_node_ratio = [0]
@@ -156,3 +176,5 @@ for alpha in alpha_list:
                     print(f"finished in {end_time-start_time} seconds")
                     read_experiment_csvs(experimentsName=experimentsName)                    
                     time.sleep(10)
+
+

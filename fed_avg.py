@@ -14,7 +14,7 @@ def fed_avg(models):
     total_samples = len(models)
 
     # Create a Zero Model
-    accum = {layer: torch.zeros_like(param) for layer, param in models[0].items()}
+    accum = {layer: torch.zeros_like(models[0][layer]) for layer in models[0]}
     # for layer in models[0]:
     #     print(models[0][layer].dtype, accum[layer].dtype)
 

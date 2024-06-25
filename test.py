@@ -58,7 +58,7 @@ train_dataset = None
 test_dataset = None
 
 # define the attack
-# attack should be one of ['sample poisoning', 'model poisoning', 'label flipping', 'no attack']
+# attack should be one of ['sample poisoning', 'model poisoning', 'label flipping', 'no_attack']
 #attack_type = 'model poisoning'
 targeted = True
 #poisoned_node_ratio = [0]

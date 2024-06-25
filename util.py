@@ -132,7 +132,7 @@ def generate_node_configs(node_id:int, indices:list, experimentsName:str, experi
     label_flipping = False
     data_poisoning = False
     attack_targeted = False
-    if attack_type.lower() not in ["label flipping", "no attack", "sample poisoning", "model poisoning"]:
+    if attack_type.lower() not in ["label flipping", "no_attack", "sample poisoning", "model poisoning"]:
         print(f"{attack_type} attack type is not supported")
     if attack_type.lower() == "label flipping":
         label_flipping = True
@@ -220,7 +220,7 @@ def generate_attack_matrix(node_list:list, attack_type:str, targeted:Union[bool,
             }
         elif node_id not in attacked_node_list:
             attack_matrix[node_id] = {
-                "attack_type": "no attack",
+                "attack_type": "no_attack",
                 "targeted": None,
                 "noise_injected_ratio": None,
                 "poisoned_sample_ratio": None

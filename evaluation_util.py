@@ -25,7 +25,7 @@ def get_test_res(dataSeries):
 
 
 def read_experiment_csvs(experimentsName:str):
-    experimentsName = '10_clients_alpha_100_Syscall_fully_fed_avg_model poisoning_0_dynamic_topo_False_dynamic_agg_False_is_proactive_False10_06_2024_13_01_11'
+    # experimentsName = '10_clients_alpha_100_Syscall_fully_fed_avg_model poisoning_0_dynamic_topo_False_dynamic_agg_False_is_proactive_False10_06_2024_13_01_11'
     cwd = os.getcwd()
     experimentsName_path = cwd+'/experiments/'+experimentsName
     results_csv_list = []
@@ -41,7 +41,8 @@ def read_experiment_csvs(experimentsName:str):
 
     res_dict = {}
     for csv_name in results_csv_list:
-        df = pd.read_csv(results_csv_list[0])
+        # df = pd.read_csv(results_csv_list[0])
+        df = pd.read_csv(csv_name)
         node_id = extract_node_id(csv_name)
         node_res = {}
 
@@ -69,3 +70,8 @@ def read_experiment_csvs(experimentsName:str):
 
     with open(experimentsName_path+'/res.json', 'w') as f:
         json.dump(res_dict, f)
+
+
+if __name__ == "__main__":
+    for experiment_name in os.listdir("./experiments"):
+        read_experiment_csvs(experiment_name)
