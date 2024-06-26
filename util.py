@@ -17,16 +17,19 @@ from torchvision.datasets import CIFAR10
 from torchvision.datasets import FashionMNIST
 from syscalldataset import SYSCALL
 
+np.random.seed(2024)
+
 # Define function for Dirichlet sampling and balanced data distribution
 def dirichlet_sampling_balanced(targets, alpha, num_clients):
     targets = np.array(targets)
     num_classes = len(np.unique(targets))
     data_per_client = [[] for _ in range(num_clients)]
-    
+
     for k in range(num_classes):
         idx_k = np.where(targets == k)[0]
         np.random.shuffle(idx_k)
         proportions = np.random.dirichlet(np.repeat(alpha, num_clients))
+        print(f"{k} proportions",proportions)
         proportions = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
         splits = np.split(idx_k, proportions)
         for i in range(num_clients):
@@ -37,6 +40,50 @@ def dirichlet_sampling_balanced(targets, alpha, num_clients):
     balanced_data_per_client = [data[:min_samples] for data in data_per_client]
     
     return balanced_data_per_client
+
+def dirichlet_sampling_balanced_mixed(targets, alpha, num_clients):
+
+    alpha1 = alpha[0]
+    alpha2 = alpha[1]
+
+    targets = np.array(targets)
+    num_classes = len(np.unique(targets))
+    data_per_client = [[] for _ in range(num_clients)]
+
+    client_distribution = {i: {j: 0 for j in range(num_classes)} for i in range(num_clients)}
+
+
+    for k in range(num_classes):
+        idx_k = np.where(targets == k)[0]
+        np.random.shuffle(idx_k)
+        proportions = np.random.dirichlet(np.repeat(alpha1, 2))
+        print(f"{k} proportions",proportions)
+        proportions = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
+        splits = np.split(idx_k, proportions)
+        for i in range(2):
+            data_per_client[i].extend(splits[i])
+            client_distribution[i][k] += len(splits[i])
+    
+    for k in range(num_classes):
+        idx_k = np.where(targets == k)[0]
+        np.random.shuffle(idx_k)
+        proportions = np.random.dirichlet(np.repeat(alpha2, num_clients-2))
+        print(f"{k} proportions",proportions)
+        proportions = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
+        splits = np.split(idx_k, proportions)
+        for i in range(2, num_clients):
+            data_per_client[i].extend(splits[i - 2])
+            client_distribution[i][k] += len(splits[i - 2])
+    
+    # Ensure each client has the same number of samples
+    min_samples = min(len(data) for data in data_per_client)
+    balanced_data_per_client = [data[:min_samples] for data in data_per_client]
+
+    for k,v in client_distribution.items():
+        print(k)
+        print(v)
+    
+    return balanced_data_per_client, client_distribution
 
 
 # L0 norm, number of non zero items
