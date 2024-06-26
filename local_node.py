@@ -22,6 +22,7 @@ from cifar10model import SimpleMobileNet
 from syscallmodel import SYSCALLModelMLP
 from data_util import DynamicDataLoader, DynamicDataset, dynamic_transformer
 from itertools import product
+from lightning.pytorch.callbacks import ModelCheckpoint
 
 class local_node():
     def __init__(
@@ -167,12 +168,17 @@ class local_node():
     def local_training(self,with_checkpoints:bool=False):
         # trainer = pl.Trainer(max_epochs=self.maxEpoch, accelerator='cuda', devices=-1) 
         # ddp = DDPStrategy(process_group_backend="gloo")
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=self.experimentsName_path+f"/node_{self.node_id}",
+            filename=self.dataset_name+'-epoch-{epoch:02d}',
+            save_top_k=-1 )
         trainer = pl.Trainer(logger=self.logger,
                              max_epochs=self.maxEpoch, 
                              devices=1,
                              accelerator="cuda",
                              enable_progress_bar=False, 
-                             enable_checkpointing=False,
+                             enable_checkpointing=True,
+                             callbacks=[checkpoint_callback]
                             #  strategy=ddp
                              )
         
@@ -187,8 +193,7 @@ class local_node():
             self.train_dataloader = DataLoader(data_train_dynamic, batch_size=64, shuffle=True )
             self.val_dataloader = DataLoader(data_val_dynamic, batch_size=64,shuffle=False)
             # self.test_dataloader = DataLoader(test_dataset_dynamic, batch_size=64,shuffle=False)
-            # self.backdoor_valid_dataloader = DataLoader(backdoor_valid_dataset_dynamic, batch_size=64,shuffle=False)
-
+            # self.backdoor_valid_dataloader = DataLoader(backdoor_valid_dataset_dynamic, batch_size=64,shuffle=False)       
 
         trainer.fit(self.model, train_dataloaders=self.train_dataloader, val_dataloaders=self.val_dataloader)
         
@@ -201,8 +206,9 @@ class local_node():
             self.model.load_state_dict(poisoned_model_dict)
         
         print(f"Performance of Node {self.node_id} before aggregation at round {self.curren_round}")
-        trainer.test(self.model, self.test_dataloader)
-        self.cal_backdoor_acc()
+        confmat, attacker_success = self.cal_backdoor_acc()
+        # self.logger.log_metrics({"Test/ASR-backdoor": attacker_success})
+        trainer.test(self.model, self.test_dataloader)       
 
         if with_checkpoints:
             trainer.save_checkpoint(f"{self.experimentsName_path}/checkpoint_{self.experimentsName}_node_{self.node_id}_round_{self.curren_round}.ckpt")
@@ -240,7 +246,7 @@ class local_node():
         attacker_success = num_predicted_target / num_samples
         self.logger.log_metrics({"Test/ASR-backdoor": attacker_success})
         print("Computed ASR Backdoor: {}".format(attacker_success))
-        return confmat
+        return confmat, attacker_success
         
 
     def aggregator(self, func, *args):
