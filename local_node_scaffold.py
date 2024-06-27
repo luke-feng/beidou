@@ -67,7 +67,7 @@ def create_scaffold_model_class(base_class):
             loss = self.criterion(y_pred, y)
             # print(f"loss: {loss}")
             # Get metrics for each batch and log them
-            self.log(f"{"Train"}/Loss", loss, prog_bar=False, sync_dist=True)
+            self.log(f"Train/Loss", loss, prog_bar=False, sync_dist=True)
             super().process_metrics("Train", y_pred, y, loss)
 
             optimizer = self.optimizers()  # Retrieve the optimizer
@@ -99,9 +99,9 @@ def create_scaffold_model_class(base_class):
                     # print(f"Gradient for {name}: {param.grad}")
                     # print(f"global_cv: {global_cv}")
                     # print(f"client_cv: {client_cv}")
-                    param.data -= eta * (grad + global_cv - client_cv)
-
-
+                    param.data -= eta * (global_cv - client_cv)
+                
+            optimizer.step()
             # Return the loss to be logged
             return loss
         

@@ -48,7 +48,7 @@ log.setLevel(logging.ERROR)
 # 6月22日 fedavg 
 num_peers = 10
 # alpha_list = [[50,5],[50,1],[50,0.5]]
-alpha_list = [[50,5]]
+alpha_list = [[100,100]]
 topology_list = ["fully"]
 maxRound = 30
 maxEpoch = 2
