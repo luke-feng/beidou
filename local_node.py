@@ -170,7 +170,7 @@ class local_node():
         trainer = pl.Trainer(logger=self.logger,
                              max_epochs=self.maxEpoch, 
                              devices=1,
-                             accelerator="cuda",
+                             accelerator="cpu",
                              enable_progress_bar=False, 
                              enable_checkpointing=False,
                             #  strategy=ddp
@@ -359,7 +359,7 @@ class local_node():
         trainer = pl.Trainer(logger=self.logger,
                              max_epochs=self.maxEpoch, 
                              devices=1,
-                             accelerator="cuda",
+                             accelerator="cpu",
                              enable_progress_bar=False, 
                              enable_checkpointing=False,
                              )

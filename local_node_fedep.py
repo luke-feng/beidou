@@ -63,7 +63,6 @@ class local_node_fedep(local_node):
 
         print(f"[NodeFedEP] Initializing FedEP node")
 
-
     def get_theta(self):
         return self.theta
 

@@ -10,7 +10,7 @@ from typing import Union
 import networkx as nx
 from typing import OrderedDict, List, Optional
 import logging
-
+import torch
 from torchvision import transforms
 from torchvision.datasets import MNIST
 from torchvision.datasets import CIFAR10

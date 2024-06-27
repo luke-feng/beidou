@@ -137,11 +137,17 @@ class MNISTModelMLP(pl.LightningModule):
         # (b, 1, 28, 28) -> (b, 1*28*28)
         x = x.view(batch_size, -1)
         x = self.l1(x)
+        # print(f"After l1 x[0][0]: {x[0][0]}")
         x = torch.relu(x)
+        # print(f"After a1 x[0][0]: {x[0][0]}")
         x = self.l2(x)
+        # print(f"After l2 x[0][0]: {x[0][0]}")
         x = torch.relu(x)
+        # print(f"After a2 x[0][0]: {x[0][0]}")
         x = self.l3(x)
+        # print(f"After l3 x[0][0]: {x[0][0]}")
         x = torch.log_softmax(x, dim=1)
+        # print(f"After softmax x[0][0]: {x[0][0]}")
         return x
 
     def configure_optimizers(self):
